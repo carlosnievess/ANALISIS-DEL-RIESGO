@@ -1,0 +1,448 @@
+---
+title: "Práctica 1: Hechos estilizados sobre el comportamiento del precio y el rendimiento de los activos"
+author: "Carlos Enrique Nieves Ochoa"
+date: "2026-08-31"
+output: html_document
+---
+
+## Introducción
+
+Descargaré los datos de Amazon (AMZN), Netflix (NFLX) y Tesla (TSLA) y descargaré los últimos 5 años para recabar la mayor cantidad de datos y llevar a cabo un mejor análisis, calcularé sus rendimientos y los 4 hechos estilizados (Dependencia Lineal Débil, Clústeres de Volatilidad, Colas Pesadas y Asimetría).
+
+## Análisis de los hechos estilizados
+
+Desarrolla los puntos 2, 3 y 4 de la descripción
+
+### ACTIVO - AMAZON
+
+**Punto 2, descargar los precios**
+
+```{r}
+library(quantmod)
+library(moments)
+
+ticker <- "AMZN"
+
+getSymbols(
+  ticker,
+  src = "yahoo",
+  from = "2021-01-01"
+)
+
+price <- Ad(get(ticker))
+head(price)
+```
+
+**Gráfica de la serie de precios**
+
+```{r}
+plot(
+  price,
+  main = paste(ticker, "- Adjusted Price"),
+  ylab = "Price",
+  xlab = ""
+)
+```
+
+**Punto 3, calculo de rendimientos, simple y logarítmico**
+
+```{r}
+simple_return <- dailyReturn(na.omit(price), type = "arithmetic")
+log_return    <- dailyReturn(na.omit(price), type = "log")
+
+head(cbind(simple_return, log_return))
+```
+
+**Gráfica de rendimientos diarios**
+
+```{r}
+plot(
+  log_return,
+  main = paste(ticker, "- Daily Log Returns"),
+  ylab = "Log Return",
+  xlab = ""
+)
+
+abline(h = 0, lty = 2)
+```
+
+**Hecho 1: Dependencia Lineal de los rendimientos**
+
+```{r}
+acf(
+  na.omit(log_return),
+  main = "ACF of Log Returns"
+)
+```
+
+
+Casi todas las autocorrelaciones caen dentro de las bandas de confianza y son cercanas a cero. Los rendimientos pasados aportan poca información lineal sobre los futuros.
+
+**Hecho 2: Cluster de volatilidad**
+
+```{r}
+acf(
+  na.omit(log_return)^2,
+  main = "ACF of Squared Returns"
+)
+```
+
+
+Al elevar los rendimientos al cuadrado, la autocorrelación en el rezago uno supera claramente las bandas y varias más se mantienen por encima. Existe dependencia en la magnitud; la volatilidad se agrupa.
+
+**Hecho 3: Colas pesadas**
+
+```{r}
+r <- as.numeric(na.omit(log_return))
+
+hist(
+  r,
+  breaks = 50,
+  probability = TRUE,
+  main = paste(ticker, "- Distribution of Log Returns"),
+  xlab = "Log Return"
+)
+
+lines(
+  density(r),
+  lwd = 2
+)
+
+mu_hat    <- mean(r)
+sigma_hat <- sd(r)
+
+curve(
+  dnorm(x, mean = mu_hat, sd = sigma_hat),
+  add = TRUE,
+  lwd = 2,
+  lty = 2
+)
+
+legend(
+  "topright",
+  legend = c("Empirical density", "Normal benchmark"),
+  lty = c(1,2),
+  lwd = c(2,2),
+  bty = "n"
+)
+```
+
+
+La densidad empírica presenta un pico más alto y estrecho que la normal con igual media y desviación, y colas más gruesas. Hay leptocurtosis; los valores extremos son más frecuentes de lo que supone la normal.
+
+**Hecho 4: Asimetría**
+
+```{r}
+mean_return <- mean(r)
+sd_return   <- sd(r)
+skew_return <- skewness(r)
+kurt_return <- kurtosis(r)
+
+excess_kurtosis <- kurt_return - 3
+
+summary_stats <- data.frame(
+  Mean = mean_return,
+  SD = sd_return,
+  Skewness = skew_return,
+  Excess_Kurtosis = excess_kurtosis
+)
+
+summary_stats
+```
+
+
+La media es prácticamente cero (0.00036) y la desviación 2.21%. El exceso de curtosis de 5.60 confirma colas pesadas; el sesgo de 0.091 es casi nulo, con una ligerísima inclinación positiva.
+
+### ACTIVO - NETFLIX
+
+**Descarga de datos**
+
+```{r}
+ticker <- "NFLX"
+
+getSymbols(
+  ticker,
+  src = "yahoo",
+  from = "2021-01-01"
+)
+
+price <- Ad(get(ticker))
+head(price)
+```
+
+**Gráfica de los precios**
+
+```{r}
+plot(
+  price,
+  main = paste(ticker, "- Adjusted Price"),
+  ylab = "Price",
+  xlab = ""
+)
+```
+
+**Cálculos de rendimientos, simples y logarítmicos**
+
+```{r}
+simple_return <- dailyReturn(na.omit(price), type = "arithmetic")
+log_return    <- dailyReturn(na.omit(price), type = "log")
+
+head(cbind(simple_return, log_return))
+```
+
+**Gráfica de rendimientos diarios**
+
+```{r}
+plot(
+  log_return,
+  main = paste(ticker, "- Daily Log Returns"),
+  ylab = "Log Return",
+  xlab = ""
+)
+
+abline(h = 0, lty = 2)
+```
+
+**Hecho 1: Dependencia Lineal de los rendimientos**
+
+```{r}
+acf(
+  na.omit(log_return),
+  main = "ACF of Log Returns"
+)
+```
+
+
+Todas las autocorrelaciones se mantienen dentro de las bandas y prácticamente sobre cero. No hay dependencia lineal apreciable; los rendimientos pasados de NFLX no anticipan linealmente a los futuros.
+
+**Hecho 2: Cluster de volatilidad**
+
+```{r}
+acf(
+  na.omit(log_return)^2,
+  main = "ACF of Squared Returns"
+)
+```
+
+
+A diferencia de Amazon, la autocorrelación de los rendimientos al cuadrado también queda dentro de las bandas. La evidencia de clúster de volatilidad es débil, probablemente porque un desplome extremo domina la varianza de la serie.
+
+**Hecho 3: Colas pesadas**
+
+```{r}
+r <- as.numeric(na.omit(log_return))
+
+hist(
+  r,
+  breaks = 50,
+  probability = TRUE,
+  main = paste(ticker, "- Distribution of Log Returns"),
+  xlab = "Log Return"
+)
+
+lines(
+  density(r),
+  lwd = 2
+)
+
+mu_hat    <- mean(r)
+sigma_hat <- sd(r)
+
+curve(
+  dnorm(x, mean = mu_hat, sd = sigma_hat),
+  add = TRUE,
+  lwd = 2,
+  lty = 2
+)
+
+legend(
+  "topright",
+  legend = c("Empirical density", "Normal benchmark"),
+  lty = c(1,2),
+  lwd = c(2,2),
+  bty = "n"
+)
+```
+
+
+El histograma es muy puntiagudo y se extiende hasta un rendimiento cercano a −0.40. Las colas superan ampliamente a la normal; hay leptocurtosis marcada, con un evento de caída muy pronunciada.
+
+**Hecho 4: Asimetría**
+
+```{r}
+mean_return <- mean(r)
+sd_return   <- sd(r)
+skew_return <- skewness(r)
+kurt_return <- kurtosis(r)
+
+excess_kurtosis <- kurt_return - 3
+
+summary_stats <- data.frame(
+  Mean = mean_return,
+  SD = sd_return,
+  Skewness = skew_return,
+  Excess_Kurtosis = excess_kurtosis
+)
+
+summary_stats
+```
+
+
+Media casi cero (0.00031) y desviación 2.77%. El sesgo de −2.80 indica fuerte asimetría negativa y el exceso de curtosis de 48.69 confirma colas extraordinariamente pesadas; riesgo a la baja pronunciado.
+
+### ACTIVO - TESLA
+
+**Descarga de datos**
+
+```{r}
+ticker <- "TSLA"
+
+getSymbols(
+  ticker,
+  src = "yahoo",
+  from = "2021-01-01"
+)
+
+price <- Ad(get(ticker))
+head(price)
+```
+**Gráfica de los precios**
+
+```{r}
+plot(
+  price,
+  main = paste(ticker, "- Adjusted Price"),
+  ylab = "Price",
+  xlab = ""
+)
+```
+**Cálculos de rendimientos, simples y logarítmicos**
+
+```{r}
+simple_return <- dailyReturn(na.omit(price), type = "arithmetic")
+log_return    <- dailyReturn(na.omit(price), type = "log")
+
+head(cbind(simple_return, log_return))
+```
+**Gráfica de rendimientos diarios**
+
+```{r}
+plot(
+  log_return,
+  main = paste(ticker, "- Daily Log Returns"),
+  ylab = "Log Return",
+  xlab = ""
+)
+
+abline(h = 0, lty = 2)
+```
+**Hecho 1: Dependencia Lineal de los rendimientos**
+
+```{r}
+acf(
+  na.omit(log_return),
+  main = "ACF of Log Returns"
+)
+```
+
+
+Las autocorrelaciones permanecen dentro de las bandas y alrededor de cero en todos los rezagos. No existe dependencia lineal relevante; el pasado de TSLA no ofrece información lineal útil sobre el rendimiento futuro.
+
+**Hecho 2: Cluster de volatilidad**
+
+```{r}
+acf(
+  na.omit(log_return)^2,
+  main = "ACF of Squared Returns"
+)
+```
+
+
+Algunas autocorrelaciones de los rendimientos al cuadrado superan las bandas, sobre todo en los rezagos nueve, once y veintidós. Hay evidencia moderada de clúster de volatilidad, más clara que en Netflix pero no muy fuerte.
+
+**Hecho 3: Colas pesadas**
+
+```{r}
+r <- as.numeric(na.omit(log_return))
+
+hist(
+  r,
+  breaks = 50,
+  probability = TRUE,
+  main = paste(ticker, "- Distribution of Log Returns"),
+  xlab = "Log Return"
+)
+
+lines(
+  density(r),
+  lwd = 2
+)
+
+mu_hat    <- mean(r)
+sigma_hat <- sd(r)
+
+curve(
+  dnorm(x, mean = mu_hat, sd = sigma_hat),
+  add = TRUE,
+  lwd = 2,
+  lty = 2
+)
+
+legend(
+  "topright",
+  legend = c("Empirical density", "Normal benchmark"),
+  lty = c(1,2),
+  lwd = c(2,2),
+  bty = "n"
+)
+```
+
+
+La densidad empírica tiene un pico algo más alto que la normal y colas ligeramente más gruesas, aunque la diferencia es menor que en los otros activos. Hay leptocurtosis moderada, con una distribución más ancha.
+
+**Hecho 4: Asimetría**
+
+```{r}
+mean_return <- mean(r)
+sd_return   <- sd(r)
+skew_return <- skewness(r)
+kurt_return <- kurtosis(r)
+
+excess_kurtosis <- kurt_return - 3
+
+summary_stats <- data.frame(
+  Mean = mean_return,
+  SD = sd_return,
+  Skewness = skew_return,
+  Excess_Kurtosis = excess_kurtosis
+)
+
+summary_stats
+```
+
+
+Media casi nula (0.00025) y desviación de 3.72%, la más alta de los tres activos. El sesgo de 0.053 es prácticamente cero, y el exceso de curtosis de 2.75 indica colas pesadas moderadas.
+
+## AUDITORÍA CON IA
+
+Según Gemini, "Tu análisis general está bien planteado en cuanto a estructura e intuición financiera, pero presenta varias inconsistencias metodológicas y omisiones interpretativas que conviene pulir para darle verdadero rigor econométrico. En términos conceptuales, identificas correctamente los cuatro hechos estilizados clave, pero limitas la validación a la mera inspección visual y arrastras ciertas prácticas de cálculo en R que pueden distorsionar los resultados.
+
+El primer aspecto a corregir es puramente metodológico y tiene que ver con el cálculo de los rendimientos. Emplear la función `dailyReturn()` de la librería `quantmod` suele generar pequeñas anomalías en la primera observación de la serie temporal (como introducir un cero artificial o valores no alineados con el cierre previo). La mejor práctica en series de tiempo financieras es calcular los rendimientos logarítmicos continuos de manera vectorial directa sobre los precios ajustados mediante la expresión `diff(log(price))`, eliminando explícitamente los valores nulos con `na.omit()`. Además, para validar de forma concluyente hechos como la dependencia lineal o la normalidad, no basta con mirar gráficos: es indispensable respaldar la inspección visual con pruebas formales de hipótesis, tales como la prueba de Ljung-Box para la autocorrelación de rendimientos y volatilidades, y la prueba de Jarque-Bera para el exceso de curtosis y la asimetría.
+
+En cuanto a la evaluación de los clústeres de volatilidad, te estás limitando exclusivamente al uso de los rendimientos al cuadrado ($r_t^2$). En la literatura de econometría financiera (particularmente tras los hallazgos de Ding, Granger y Engle sobre el llamado efecto Taylor), es ampliamente conocido que elevar al cuadrado una serie que contiene observaciones extremas atípicas castiga y sesga severamente a la baja el estimador muestral de autocorrelación. Al evaluar en su lugar la magnitud absoluta de los rendimientos ($\vert{}r_t\vert{}$), la autocorrelación persistente de la volatilidad suele evidenciarse de manera mucho más clara y robusta.
+
+Respecto a las colas pesadas y la asimetría, el uso exclusivo del histograma con una curva normal superpuesta resulta insuficiente. En distribuciones financieras, las colas contienen densidades muy bajas que quedan visualmente ocultas o aplanadas en un histograma con 50 intervalos. Para diagnosticar adecuadamente el comportamiento extremo y la leptocurtosis es necesario incorporar gráficos de cuantiles normales (Q-Q plots con `qqnorm()` y `qqline()`), los cuales permiten observar con precisión matemática cómo las observaciones empíricas se despegan radicalmente de la recta teórica en ambas colas.
+
+Pasando a la interpretación específica de cada activo, en Amazon señalas que existe una «ligerísima inclinación positiva» debido a un coeficiente de asimetría de 0.091. En finanzas empíricas, una cifra tan cercana a cero rara vez es estadísticamente distinguible de una distribución simétrica en muestras de más de mil observaciones diarias, por lo que es más preciso concluir que el cuerpo de la distribución no presenta sesgo sistemático relevante.
+
+En el caso de Netflix cometes una omisión importante al justificar por qué no se aprecia clúster de volatilidad en $r_t^2$. Tu intuición de que el desplome masivo de precios domina la varianza es acertada (asociado a la pérdida de suscriptores a inicios de 2022), pero debes explicar el mecanismo econométrico: un único choque negativo extremo de casi un -40% infla desproporcionadamente la varianza muestral global en el denominador de la función de autocorrelación, enmascarando la persistencia de la volatilidad en los días contiguos. Al complementar tu análisis con el ACF de $\vert{}r_t\vert{}$ o una prueba ARCH de Engle, la evidencia de agrupación de volatilidad reaparece. Asimismo, el exceso de curtosis descomunal de 48.69 no solo denota colas pesadas convencionales, sino una dinámica gobernada por riesgo de evento o saltos discretos (*jumps*), lo cual rompe los supuestos de continuidad en modelos estocásticos estándar.
+
+Finalmente, en Tesla incurres en un error de interpretación estadística al analizar los rezagos lejanos de la volatilidad. Argumentas que existe evidencia de clúster porque se aprecian rezagos fuera de las bandas en las posiciones 9, 11 y 22, a pesar de que los primeros rezagos son prácticamente nulos. En el análisis de series de tiempo, cuando los primeros rezagos no muestran significancia y únicamente aparecen picos aislados en rezagos distantes, esto casi siempre corresponde a ruido blanco muestral o a un error Tipo I (donde por puro azar, al 95% de confianza, uno de cada veinte rezagos cruzará las bandas). Afirmar que existe memoria o agrupación de volatilidad basándote en esos rezagos tardíos es metodológicamente incorrecto; la conclusión rigurosa es que la autocorrelación lineal de la varianza en Tesla es débil o difusa bajo $r_t^2$ y requiere contrastarse mediante $\vert{}r_t\vert{}$ y pruebas estadísticas formales conjuntas."
+
+## CONCLUSIÓN
+
+Los tres activos coinciden en el Hecho 1: la autocorrelación de los rendimientos logarítmicos se mantiene dentro de las bandas de confianza en casi todos los rezagos, lo que resulta consistente con la eficiencia en forma débil. También coinciden en el Hecho 3, pues los tres presentan exceso de curtosis positivo, de modo que las colas pesadas aparecen como una regularidad transversal y no como una peculiaridad de un solo activo.
+
+Las diferencias se concentran en la magnitud y en la forma. Tesla es el más volátil, con una desviación estándar de 3.72 por ciento, seguido de Netflix con 2.77 y Amazon con 2.21. Amazon, con un sesgo de 0.091, y Tesla, con 0.053, no muestran asimetría distinguible de cero en muestras de este tamaño, mientras que Netflix exhibe un sesgo de menos 2.80 y un exceso de curtosis de 48.69, dominado por un salto discreto cercano a menos 40 por ciento. El Hecho 2 es el menos concluyente al evaluarse con los rendimientos al cuadrado; en Amazon el primer rezago sí es significativo, en Netflix el choque extremo infla la varianza muestral y enmascara la persistencia y en Tesla los picos aislados en rezagos lejanos corresponden más probablemente a un error de tipo uno que a memoria real en la volatilidad.
+
+La implicación para la medición de riesgo es que la desviación estándar ordena mal los activos. Tesla es el más volátil pero el más cercano a la normalidad, mientras que Netflix, con menor dispersión, concentra el peor riesgo de cola. Un valor en riesgo bajo el supuesto de normalidad subestimaría gravemente la pérdida potencial de Netflix, por lo que se requieren métricas sensibles a las colas, como el déficit esperado, y modelos que incorporen volatilidad variable en el tiempo y saltos.
